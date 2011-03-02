@@ -1,5 +1,5 @@
-(ns twtr2mvc.mixi
-  (use twtr2mvc.http twtr2mvc.html twtr2mvc.config
+(ns as2twtr.mixi
+  (use as2twtr.http as2twtr.html as2twtr.config
        [clojure.contrib.str-utils :only (re-sub)]))
 
 (def *user-email* (config "mixi.email"))

@@ -1,5 +1,5 @@
-(ns twtr2mvc.twitter
-  (use twtr2mvc.config)
+(ns as2twtr.twitter
+  (use as2twtr.config)
   (import [twitter4j Twitter Paging]
 	  [twitter4j.http AccessToken]))
 

@@ -1,4 +1,4 @@
-(ns twtr2mvc.html
+(ns as2twtr.html
   (use [clojure.contrib.duck-streams :only (reader)]
        [saxon :only (compile-file compile-xpath)])
   (import [java.io Reader InputStream PipedWriter PipedReader]

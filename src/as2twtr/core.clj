@@ -1,9 +1,9 @@
-(ns twtr2mvc
+(ns as2twtr.core
   (:gen-class)
-  (use [twtr2mvc.config :only (config set-config-file!)]
+  (use [as2twtr.config :only (config set-config-file!)]
        [clojure.contrib.str-utils :only (re-sub)])
-  (require [twtr2mvc.mixi :as mixi]
-	   [twtr2mvc.twitter :as twitter]
+  (require [as2twtr.mixi :as mixi]
+	   [as2twtr.twitter :as twitter]
 	   [clojure.contrib.logging :as log]))
 
 (defn forward-from-twitter [since-id]

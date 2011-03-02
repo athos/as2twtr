@@ -1,6 +1,6 @@
-(ns twtr2mvc.config)
+(ns as2twtr.config)
 
-(def *configuration-filename* (atom "twtr2mvc.conf"))
+(def *configuration-filename* (atom "as2twtr.conf"))
 
 (def *configurations* (atom {}))
 

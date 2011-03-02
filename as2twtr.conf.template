@@ -1,0 +1,6 @@
+(defconfig twitter
+  [username "twitter account"]
+  [consumer-key "consumer key"]
+  [consumer-secret "consumer secret"]
+  [access-token "twitter oauth access token"]
+  [access-token-secret "twitter oauth access token secret"])

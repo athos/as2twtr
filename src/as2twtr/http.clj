@@ -1,4 +1,4 @@
-(ns twtr2mvc.http
+(ns as2twtr.http
   (use [clojure.contrib.duck-streams :only (with-out-writer slurp*)]
        [clojure.contrib.def :only (defnk)]
        [clojure.contrib.str-utils :only (str-join re-split)])
