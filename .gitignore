@@ -2,7 +2,6 @@
 *.conf
 pom-generated.xml
 Manifest.txt
-twtr2mvc.jar
-twtr2mvc-standalone.jar
+*.jar
 lib
 classes
