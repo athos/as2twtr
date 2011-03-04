@@ -23,29 +23,30 @@
 ;; chat client
 (defrecord ChatClient [websocket post-uri observer-thread])
 
-(defn make-chat-client [websocket-uri post-uri]
-  (ChatClient. (ws/make-websocket-client websocket-uri) post-uri (atom nil)))
-
 (defn- make-handler [client observer]
-  (let [handle-it (or observer (fn [_ _] nil))]
+  (let [handle-it (or observer (fn [_ _ _] nil))]
     (letfn [(iter []
 	      (let [message (get-message client)]
 		(handle-it client
 			   (message-type message)
-			   (message->content frame))
+			   (message->content message))
 		(recur)))]
-      (.start (Thread. iter)))))
+      (doto (Thread. iter)
+	(.start)))))
 
-(defn connect [client & [observer]]
-  (handshake (:websocket client))
-  (reset! (:observer-thread client) (make-handler client observer))
-  client)
+(defn connect [websocket-uri post-uri & [observer]]
+  (let [client (ChatClient. (ws/make-websocket-client websocket-uri)
+			    post-uri
+			    (atom nil))]
+    (ws/handshake (:websocket client))
+    (reset! (:observer-thread client) (make-handler client observer))
+  client))
 
 (defn disconnect [client]
-  (doto (:observer-thread client)
-    (.stop)
-    (reset! nil))
-  client)
+  (.stop @(:observer-thread client))
+  (reset! (:observer-thread client) nil)
+  (ws/disconnect (:websocket client))
+  nil)
 
 ;; post message
 (defn post-message [client message]
@@ -53,7 +54,7 @@
 
 ;; get message (synchronously)
 (defn get-message [client]
-  (-> client
+  (-> (:websocket client)
       ws/recv-frame
       ws/bytes->string
       read-json))
