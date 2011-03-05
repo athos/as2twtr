@@ -1,6 +1,6 @@
 (ns as2twtr.config)
 
-(def *configurations* (ref nil))
+(def #^{:private true} *configurations* (ref nil))
 
 (defmacro defconfig [name & key-values]
   (let [configs (map (fn [[key value]]
@@ -11,7 +11,8 @@
 	 nil)))
 
 (defn read-configuration [filename]
-  (dosync
-    (ref-set *configurations* {})
-    (load-file filename)
-    @*configurations*))
+  (binding [*ns* (find-ns 'as2twtr.config)]
+    (dosync
+     (ref-set *configurations* {})
+     (load-file filename)
+     @*configurations*)))
