@@ -18,18 +18,16 @@
     (Content. (:id content) (:name content) (:body content))))
 
 (defn- message-type [message]
-  (:event message))
+  (keyword (:event message)))
 
 ;; chat client
 (defrecord ChatClient [websocket post-uri observer-thread])
 
 (defn- make-handler [client observer]
-  (let [handle-it (or observer (fn [_ _ _] nil))]
+  (let [handle-it (or observer (fn [_ _] nil))]
     (letfn [(iter []
 	      (let [message (get-message client)]
-		(handle-it client
-			   (message-type message)
-			   (message->content message))
+		(handle-it (message-type message) (message->content message))
 		(recur)))]
       (doto (Thread. iter)
 	(.start)))))

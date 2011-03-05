@@ -4,3 +4,7 @@
   [consumer-secret "consumer secret"]
   [access-token "twitter oauth access token"]
   [access-token-secret "twitter oauth access token secret"])
+
+(defconfig aschat
+  [websocket-uri "AS chat websocket URI"]
+  [post-uri "AS chat post URI"])
