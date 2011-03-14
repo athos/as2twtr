@@ -1,8 +1,9 @@
 (ns as2twtr.websocket
   (use [clojure.contrib.io :only (*byte-array-type*)]
        [clojure.string :only (join split lower-case)])
+  (require [as2twtr.ssl :as ssl])
   (import [java.net URI Socket]
-          [java.io BufferedInputStream BufferedOutputStream]
+          [java.io OutputStream BufferedInputStream BufferedOutputStream]
           [java.security MessageDigest]
           [java.nio ByteBuffer]))
 
@@ -17,47 +18,59 @@
   call-with-websocket-client)
 
 ;; websocket client
-(defrecord WebSocketClient [socket uri in out])
+(defrecord WebSocketClient [socket uri origin in out])
 
-(defn- websocket-port [uri]
-  (or (.getPort uri)
-      (case (.getScheme uri)
+(defn websocket-scheme [^URI uri]
+  (let [scheme (.getScheme uri)]
+    (when-not (or (= scheme "ws")
+		  (= scheme "wss"))
+      (java.net.MalformedURLException.))
+    scheme))
+
+(defn- websocket-port [^URI uri]
+  (let [port (.getPort uri)]
+    (if-not (= (.getPort uri) -1)
+      port
+      (case (websocket-scheme uri)
 	"ws" 80
-	"wss" 443
-	(java.net.MalformedURLException.))))
+	"wss" 443))))
 
-(defn make-websocket-client [uri]
+(defn make-websocket-client [uri & {origin :origin}]
   (let [uri (if (string? uri) (URI. uri) uri)
+	host (.getHost uri)
+	origin (or origin
+		   (str "http://" (.getHost uri))) ; FIXME
+	scheme (websocket-scheme uri)
 	port (websocket-port uri)]
-    (let [socket (Socket. (.getHost uri) port)]
+    (let [socket (if (= scheme "ws")
+		   (Socket. host port)
+		   (ssl/make-ssl-socket host port))]
       (WebSocketClient. socket
 			uri
+			origin
 			(BufferedInputStream. (.getInputStream socket))
 			(BufferedOutputStream. (.getOutputStream socket))))))
 
-(defn disconnect [client]
-  (.close (:socket client)))
-
 ;; string <-> byte array conversion
-(defn string->bytes [s]
+(defn string->bytes [^String s]
   (.getBytes s "UTF-8"))
 
 (defn bytes->string
   ([bs] (bytes->string bs (count bs)))
   ([bs size]
-   (String. bs 0 size "UTF-8")))
+   (String. (bytes bs) 0 (int size) "UTF-8")))
 
 ;; functions for sending/receiving frames
-(defn- send-data [out data]
+(defn- send-data [^OutputStream out, data]
   (cond (string? data)
-        #_=> (.write out (string->bytes data))
+        #_=> (.write out (bytes (string->bytes data)))
         (integer? data)
-        #_=> (.write out data)
+        #_=> (.write out (int data))
         (seq? data)
         #_=> (doseq [b data]
-               (.write out b))
+               (.write out (int b)))
         (= (class data) *byte-array-type*)
-        #_=> (.write out data))
+        #_=> (.write out (bytes data)))
   (.flush out))
 
 (defn send-frame [client data]
@@ -73,11 +86,14 @@
               (- x (* 2 (+ MAX 1)))))))
 
 (defn- recv-until [in pred]
-  (loop [bs []]
-    (let [b (.read in)]
-      (if (or (= b -1) (pred b))
-        (into-array Byte/TYPE bs)
-        (recur (conj bs (int->byte b)))))))
+  (let [buf (java.io.ByteArrayOutputStream.)]
+    (loop []
+      (let [b (.read in)]
+	(if (or (= b -1) (pred b))
+	  (.toByteArray buf)
+	  (do
+	    (.write buf (int (int->byte b)))
+	    (recur)))))))
 
 (defn recv-frame [client]
   (when-not (= (.read (:in client)) 0)
@@ -85,9 +101,15 @@
     (throw (Exception. "frame without \\x00 prefix received")))
   (recv-until (:in client) #(= % 255)))
 
+(defn disconnect [client]
+  (send-data (:out client) [255 0])
+  (.close (:socket client)))
+
 ;; handshake
-(defn- handshake-request-header [^URI uri, key1, key2]
-  (let [path (str (.getRawPath uri)
+(defn- handshake-request-header [^URI uri, origin, key1, key2]
+  (let [path (str (if (= (.getRawPath uri) "")
+		    "/"
+		    (.getRawPath uri))
                   (if (.getRawQuery uri)
                     (str \? (.getRawQuery uri))
                     ""))]
@@ -95,7 +117,7 @@
                "Upgrade: WebSocket\r\n"
                "Connection: Upgrade\r\n"
                "Host: " (.getAuthority uri) "\r\n"
-               "Origin: http://" (.getHost uri) "\r\n"
+               "Origin: " origin "\r\n"
                "Sec-WebSocket-Key1: " key1 "\r\n"
                "Sec-WebSocket-Key2: " key2 "\r\n")))
 
@@ -136,6 +158,7 @@
         [key2 ns2] (make-key)
         body (make-body)
         header (handshake-request-header (:uri client)
+					 (:origin client)
 					 (encode key1 ns1)
 					 (encode key2 ns2))]
     (doto (:out client)
@@ -185,8 +208,8 @@
     header))
 
 ;; convenient API
-(defn call-with-websocket-client [uri proc]
-  (let [client (make-websocket-client uri)]
+(defn call-with-websocket-client [uri proc & {origin :origin}]
+  (let [client (make-websocket-client uri :origin origin)]
     (try
       (handshake client)
       (proc client)
